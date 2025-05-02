@@ -1,0 +1,8 @@
+pandas
+tqdm
+Pillow
+python-dotenv
+google-generativeai
+ipython
+ipykernel
+ipywidgets
