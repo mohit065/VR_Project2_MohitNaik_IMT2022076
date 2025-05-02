@@ -1,8 +1,8 @@
-pandas
 tqdm
+pandas
 Pillow
-python-dotenv
-google-generativeai
 ipython
 ipykernel
 ipywidgets
+python-dotenv
+google-generativeai

@@ -11,7 +11,7 @@ import google.generativeai as genai
 
 IMAGE_DIR = '../data/images/small'
 INPUT_PATH = '../data/curated.csv'
-OUTPUT_PATH = '../data/vqa_data_flat.csv'
+OUTPUT_PATH = '../data/vqa_data.csv'
 
 df = pd.read_csv(INPUT_PATH)
 df.set_index('path', inplace=True)
@@ -19,6 +19,10 @@ df.set_index('path', inplace=True)
 load_dotenv()
 api_keys_str = os.getenv("GOOGLE_API_KEYS", "")
 API_KEYS = [key.strip() for key in api_keys_str.split(",") if key.strip()]
+
+# If .env file is not accessible, you need to make a list with your own API keys
+# API_KEYS = [api_key_1, api_key_2, ...,]
+
 if not API_KEYS:
     raise ValueError("No API keys found in GOOGLE_API_KEYS environment variable.")
 api_key_cycle = cycle(API_KEYS)
@@ -27,10 +31,7 @@ current_api_key = next(api_key_cycle)
 generation_config = {"temperature": 0.4, "top_p": 1, "top_k": 32, "max_output_tokens": 2000}
 def configure_model_with_key(api_key):
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        generation_config=generation_config
-    )
+    return genai.GenerativeModel(model_name="gemini-1.5-flash",generation_config=generation_config)
 
 model = configure_model_with_key(current_api_key)
 
@@ -70,8 +71,8 @@ def generate_qa(img_path):
         "1. Analyze the provided image and the metadata.",
         "2. Generate exactly 5 distinct questions about prominent visual features, objects, colors, materials, or attributes clearly visible in the image.",
         "3. Each question MUST have a single-word answer directly verifiable from the image.",
-        "4. The 5 questions generated MUST be different from each other, and make sure that the questions are answerable just by looking at the image.",
-        "5. Provide the output strictly in the following numbered format, with each question and answer pair clearly marked. Do not include any other text before or after this numbered list:\n",
+        "4. The 5 questions generated MUST be different from each other, and MUST be answerable just by looking at the image.",
+        "5. Provide the output STRICTLY in the following format, with each question and answer pair clearly marked. Do not include any other text before or after this numbered list:\n",
         """
         1.
         Question 1: [Your first question here]
@@ -134,18 +135,18 @@ def looper():
     if not os.path.exists(OUTPUT_PATH):
         with open(OUTPUT_PATH, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['image_path', 'question', 'answer'])
+            writer.writerow(['path', 'question', 'answer'])
         print(f"Initialized new checkpoint file at {OUTPUT_PATH}.")
     else:
         try:
             checkpoint_df = pd.read_csv(OUTPUT_PATH)
-            processed_paths = set(checkpoint_df['image_path'].unique())
+            processed_paths = set(checkpoint_df['path'].unique())
             print(f"Resuming from checkpoint: {len(processed_paths)} images already processed.")
         except pd.errors.EmptyDataError:
             print("Warning: Output file exists but is empty. Initializing with header.")
             with open(OUTPUT_PATH, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['image_path', 'question', 'answer'])
+                writer.writerow(['path', 'question', 'answer'])
 
     remaining_paths = [p for p in df.index if p not in processed_paths]
 
@@ -161,10 +162,10 @@ def looper():
 
 def main():
     looper()
-    df_flat = pd.read_csv(OUTPUT_PATH)
-    df_flat = df_flat.sort_values(by='image_path').reset_index(drop=True)
-    df_flat.to_csv(OUTPUT_PATH, index=False)
-    print(f"Finished VQA generation. Total rows: {len(df_flat)} (5 per image).")
+    temp_df = pd.read_csv(OUTPUT_PATH)
+    temp_df = temp_df.sort_values(by='path').reset_index(drop=True)
+    temp_df.to_csv(OUTPUT_PATH, index=False)
+    print(f"Finished VQA generation. Total rows: {len(temp_df)} (5 per image).")
 
 if __name__ == "__main__":
     main()
