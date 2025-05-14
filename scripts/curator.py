@@ -5,21 +5,20 @@ import pandas as pd
 from tqdm import tqdm
 from PIL import Image
 
-# --- Config ---
+# Config
 SRC_PATH = '../data/images/metadata/images.csv'
 IMAGE_SRC_DIR = '../data/images/small'
 IMAGE_DEST_DIR = '../data/curated_images'
 DEST_PATH = '../data/curated.csv'
 
-SEED = 0
 N_TOTAL = 10000
 TARGET_SIZE = (256, 256)
 
-# --- Read images metadata CSV ---
+# Read images metadata CSV
 images_df = pd.read_csv(SRC_PATH)
 metadata_lookup = {}
 
-# --- Helper functions ---
+# Helper functions
 def extract_field(data, key, inner_key='value'):
     if isinstance(data.get(key), list) and data[key]:
         first = data[key][0]
@@ -42,7 +41,7 @@ def extract_keywords(data):
 def get_metadata(image_id, field):
     return metadata_lookup.get(image_id, {}).get(field)
 
-# --- Build metadata lookup from JSON listings ---
+# Build metadata lookup from JSON listings
 json_files = sorted(glob.glob('../data/listings/metadata/listings_*.json'))
 for file in tqdm(json_files, desc="Parsing listings", unit="file"):
     with open(file, 'r', encoding='utf-8') as f:
@@ -60,13 +59,13 @@ for file in tqdm(json_files, desc="Parsing listings", unit="file"):
             except json.JSONDecodeError:
                 continue
 
-# --- Attach metadata to images_df ---
+# Attach metadata to images_df
 images_df['name'] = images_df['image_id'].apply(lambda x: get_metadata(x, 'name'))
 images_df['product_type'] = images_df['image_id'].apply(lambda x: get_metadata(x, 'product_type'))
 images_df['color'] = images_df['image_id'].apply(lambda x: get_metadata(x, 'color'))
 images_df['keywords'] = images_df['image_id'].apply(lambda x: get_metadata(x, 'keywords'))
 
-# --- Filter out unwanted IDs and rows missing metadata ---
+# Filter out unwanted IDs and rows missing metadata
 images_df = images_df[~images_df['image_id'].isin(['518Dk4FOzZL', '719hoe+OvIL', '71Qbh8wmhnL'])]
 images_df.dropna(subset=['name', 'product_type', 'color', 'keywords'], inplace=True)
 
@@ -79,17 +78,17 @@ for col in ['name', 'product_type', 'color']:
 for col in ['name', 'product_type', 'color', 'keywords']:
     images_df[col] = images_df[col].str.lower()
 
-# --- Balance out phone cases and non-cases ---
+# Balance out phone cases and non-cases
 non_case_df = images_df[images_df['product_type'] != 'cellular_phone_case']
 case_df     = images_df[images_df['product_type'] == 'cellular_phone_case']
-case_sample = case_df.sample(n=min(N_TOTAL - len(non_case_df), len(case_df)), random_state=SEED)
+case_sample = case_df.sample(n=min(N_TOTAL - len(non_case_df), len(case_df)))
 filtered_df = pd.concat([non_case_df, case_sample], ignore_index=True)
 
-# sort by original path so sampling is reproducible
+# Sort by original path
 filtered_df = filtered_df.sort_values(by='path').reset_index(drop=True)
 print(f"Final filtered dataset size: {len(filtered_df)}")
 
-# --- Derive filename and resize+copy images ---
+# Derive filename and resize+copy images
 os.makedirs(IMAGE_DEST_DIR, exist_ok=True)
 filtered_df['filename'] = filtered_df['path'].apply(os.path.basename)
 
@@ -105,7 +104,7 @@ for _, row in tqdm(filtered_df.iterrows(), total=len(filtered_df), desc="Resizin
     except Exception as e:
         print(f"Error processing {src}: {e}")
 
-# --- Write out curated CSV ---
+# Write out curated CSV
 output_df = filtered_df[['filename', 'name', 'product_type', 'color', 'keywords']]
 output_df.to_csv(DEST_PATH, index=False)
 print(f"Saved {len(output_df)} entries to {DEST_PATH}")
