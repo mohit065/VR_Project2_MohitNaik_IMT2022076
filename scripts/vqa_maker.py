@@ -1,77 +1,93 @@
-import re
 import os
 import csv
+import re
 import pandas as pd
 from tqdm import tqdm
-from PIL import Image
 from pathlib import Path
 from itertools import cycle
 from dotenv import load_dotenv
+from PIL import Image
 import google.generativeai as genai
 
-IMAGE_DIR = '../data/images/small'
-INPUT_PATH = '../data/curated.csv'
-OUTPUT_PATH = '../data/vqa_data.csv'
+# --- Config ---
+INPUT_PATH        = '../data/curated.csv'
+TARGET_IMAGE_DIR  = '../data/curated_images'
+OUTPUT_PATH       = '../data/vqa.csv'
 
+# Load curated metadata
 df = pd.read_csv(INPUT_PATH)
-df.set_index('path', inplace=True)
+df.set_index('filename', inplace=True)
 
+# Load API keys
 load_dotenv()
 api_keys_str = os.getenv("GOOGLE_API_KEYS", "")
-API_KEYS = [key.strip() for key in api_keys_str.split(",") if key.strip()]
-
-# If .env file is not accessible, you need to make a list with your own API keys
-# API_KEYS = [api_key_1, api_key_2, ...,]
-
+API_KEYS = [k.strip() for k in api_keys_str.split(",") if k.strip()]
 if not API_KEYS:
-    raise ValueError("No API keys found in GOOGLE_API_KEYS environment variable.")
+    raise ValueError("\nNo API keys found.")
 api_key_cycle = cycle(API_KEYS)
-current_api_key = next(api_key_cycle)
 
-generation_config = {"temperature": 0.4, "top_p": 1, "top_k": 32, "max_output_tokens": 2000}
-def configure_model_with_key(api_key):
+# Gemini / Gemini‐1.5‐flash config
+generation_config = {
+    "temperature": 0.4,
+    "top_p": 1,
+    "top_k": 32,
+    "max_output_tokens": 5000
+}
+
+def configure_model(api_key):
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name="gemini-1.5-flash",generation_config=generation_config)
+    return genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config=generation_config
+    )
 
-model = configure_model_with_key(current_api_key)
+# initialize model
+current_api_key = next(api_key_cycle)
+model = configure_model(current_api_key)
 
-def generate_qa(img_path):
+# Regex for parsing outputs
+QA_REGEX = re.compile(
+    r"\d+\.\s*Question\s*\d+:\s*(.*?)\s*Answer\s*\d+:\s*(.+)",
+    re.IGNORECASE
+)
+
+def generate_qa(filename):
     global model, current_api_key
-    generated_pairs = []
-    full_path = str(Path(IMAGE_DIR) / img_path).replace('\\', '/')
 
+    pairs = []
+    img_path = Path(TARGET_IMAGE_DIR) / filename
+
+    # load image
     try:
-        img = Image.open(full_path)
+        img = Image.open(img_path)
     except FileNotFoundError:
-        print(f"Error: Image file not found at {full_path}")
-        return generated_pairs
+        print(f"\nError: Image not found: {img_path}")
+        return pairs
     except Exception as e:
-        print(f"Error opening image {full_path}: {e}")
-        return generated_pairs
+        print(f"\nError opening {img_path}: {e}")
+        return pairs
 
-    try:
-        row = df.loc[img_path]
-    except KeyError:
-        print(f"Warning: No metadata found in DataFrame for {img_path}")
-        return generated_pairs
-
-    name = row.get('name', 'N/A')
+    # fetch metadata
+    row = df.loc[filename]
+    name         = row.get('name', 'N/A')
     product_type = row.get('product_type', 'N/A')
-    color = row.get('color', 'N/A')
-    keywords = row.get('keywords', 'N/A')
+    color        = row.get('color', 'N/A')
+    keywords     = row.get('keywords', 'N/A')
 
-    prompt_parts = [
-        "Given the image and the metadata below, generate 5 distinct visual questions.",
-        "Metadata:",
+    # build prompt
+    prompt = [
+        "You are given an image, some metadata about that image, and a set of instructions. Follow the instructions exactly.",
+        "\nImage:", img,
+        "\nMetadata:",
         f"- Name: {name}",
         f"- Product Type: {product_type}",
         f"- Main Color Provided: {color}",
         f"- Keywords: {keywords}\n",
-        "Instructions:",
-        "1. Analyze the provided image and the metadata.",
-        "2. Generate exactly 5 distinct questions about prominent visual features, objects, colors, materials, or attributes clearly visible in the image.",
-        "3. Each question MUST have a single-word answer directly verifiable from the image.",
-        "4. The 5 questions generated MUST be different from each other, and MUST be answerable just by looking at the image.",
+        "\nInstructions:",
+        "1. Generate exactly 5 DISTINCT questions.",
+        "2. Questions must be answerable by the image or metadata.",
+        "3. Do NOT add quotation marks.",
+        "4. Each answer must be a single word.",
         "5. Provide the output STRICTLY in the following format, with each question and answer pair clearly marked. Do not include any other text before or after this numbered list:\n",
         """
         1.
@@ -89,83 +105,69 @@ def generate_qa(img_path):
         5.
         Question 5: [Your fifth question here]
         Answer 5: [Your single-word answer here]
-        """,
-        "\nImage:",
-        img,
+        """
     ]
 
-    max_attempts = len(API_KEYS)
-    for _ in range(max_attempts):
+    # try once per key until success or exhaustion
+    for _ in range(len(API_KEYS)):
         try:
-            response = model.generate_content(prompt_parts)
-            response_text = response.text.strip()
+            response = model.generate_content(prompt)
+            text = response.text.strip()
 
-            pattern = re.compile(
-                r"\d+\.\s*Question\s*\d+: (.*?)\s*Answer\s*\d+: (\w+)",
-                re.IGNORECASE
-            )
-            matches = pattern.findall(response_text)
+            # parse out Q/A
+            matches = QA_REGEX.findall(text)
+            for q, a in matches:
+                question = q.strip().rstrip('?.!')
+                answer   = a.strip().lower()
+                if question and answer:
+                    pairs.append((question, answer))
 
-            if matches:
-                for q, a in matches:
-                    question = q.strip().rstrip('?.!')
-                    answer = a.strip().lower()
-                    if question and answer:
-                        generated_pairs.append((question, answer))
-                if len(generated_pairs) < 5:
-                    print(f"Warning: Parsed fewer than 5 Q&A pairs ({len(generated_pairs)}).")
-            else:
-                print(f"Warning: Could not parse Q&A pairs using regex.")
+            if len(pairs) < 5:
+                print(f"\nWarning: only {len(pairs)} pairs parsed for {filename}")
             break
 
         except Exception as e:
             if "429" in str(e):
+                # rate limited → rotate key
                 current_api_key = next(api_key_cycle)
-                model = configure_model_with_key(current_api_key)
+                model = configure_model(current_api_key)
                 continue
             else:
-                print(f"Error during Gemini API call or processing for {img_path}: {e}")
+                print(f"\nAPI error on {filename}: {e}")
                 break
 
-    return generated_pairs
-
-def looper():
-    processed_paths = set()
-
-    if not os.path.exists(OUTPUT_PATH):
-        with open(OUTPUT_PATH, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['path', 'question', 'answer'])
-        print(f"Initialized new checkpoint file at {OUTPUT_PATH}.")
-    else:
-        try:
-            checkpoint_df = pd.read_csv(OUTPUT_PATH)
-            processed_paths = set(checkpoint_df['path'].unique())
-            print(f"Resuming from checkpoint: {len(processed_paths)} images already processed.")
-        except pd.errors.EmptyDataError:
-            print("Warning: Output file exists but is empty. Initializing with header.")
-            with open(OUTPUT_PATH, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(['path', 'question', 'answer'])
-
-    remaining_paths = [p for p in df.index if p not in processed_paths]
-
-    for img_path in tqdm(remaining_paths, desc="Processing images", unit="image"):
-        qa_pairs = generate_qa(img_path)
-        if len(qa_pairs) == 5:
-            with open(OUTPUT_PATH, 'a', encoding='utf-8', newline='') as f:
-                writer = csv.writer(f)
-                for q, a in qa_pairs:
-                    writer.writerow([img_path, q, a])
-        else:
-            print(f"Skipped {img_path}: fewer than 5 Q&A pairs.")
+    return pairs
 
 def main():
-    looper()
-    temp_df = pd.read_csv(OUTPUT_PATH)
-    temp_df = temp_df.sort_values(by='path').reset_index(drop=True)
-    temp_df.to_csv(OUTPUT_PATH, index=False)
-    print(f"Finished VQA generation. Total rows: {len(temp_df)} (5 per image).")
+    # initialize or resume CSV
+    processed = set()
+    if not os.path.exists(OUTPUT_PATH):
+        with open(OUTPUT_PATH, 'w', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerow(['filename','question','answer'])
+    else:
+        try:
+            chk = pd.read_csv(OUTPUT_PATH)
+            processed = set(chk['filename'])
+        except pd.errors.EmptyDataError:
+            pass
+
+    all_files = list(df.index)
+    to_process = [fn for fn in all_files if fn not in processed]
+
+    for filename in tqdm(to_process, desc="VQA generation"):
+        qa = generate_qa(filename)
+        if len(qa) == 5:
+            with open(OUTPUT_PATH, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                for q,a in qa:
+                    writer.writerow([filename, q, a])
+        else:
+            print(f"\nSkipped {filename}: {len(qa)} Q&A pairs")
+
+    # final sort & rewrite
+    out_df = pd.read_csv(OUTPUT_PATH).sort_values(['filename','question']).reset_index(drop=True)
+    out_df.to_csv(OUTPUT_PATH, index=False)
+    print(f"\nDone. Total Q&A rows: {len(out_df)}")
 
 if __name__ == "__main__":
     main()
