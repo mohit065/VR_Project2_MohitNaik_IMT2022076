@@ -10,7 +10,7 @@ from transformers import ViltProcessor, ViltForQuestionAnswering
 MODEL_DIR     = "../data/vilt_ft"
 SRC_PATH      = "../data/csvs/vqa.csv"
 IMAGE_DIR     = "../data/curated_images"
-DEST_PATH     = "../data/csvs/preds_vilt_ft2.csv"
+DEST_PATH     = "../data/csvs/preds_vilt_ft.csv"
 BASE_MODEL    = "dandelin/vilt-b32-finetuned-vqa"
 USE_FINETUNED = True
 SEED          = 7
@@ -36,7 +36,7 @@ def load_model_and_processor():
 def run_inference(processor, model, df_sample, output_path):
     with open(output_path, mode="w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file)
-        writer.writerow(["image_name", "question", "answer", "prediction"])
+        writer.writerow(["image_name", "question", "answer", "generated_answer"])
 
         for fn, question, answer in tqdm(
             df_sample[["image_name", "question", "answer"]].itertuples(index=False),

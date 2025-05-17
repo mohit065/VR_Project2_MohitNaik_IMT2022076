@@ -14,7 +14,7 @@ IMAGE_DEST_DIR  = '../data/curated_images'
 DEST_PATH       = '../data/csvs/vqa.csv'
 
 GENERATION_CONFIG = {
-    "temperature": 1.2,
+    "temperature": 0.5,
     "top_p": 0.8,
     "top_k": 100,
     "max_output_tokens": 1000
