@@ -1,4 +1,4 @@
-filename,question,answer,prediction
+image_name,question,answer,prediction
 9605ab47.jpg,What is the main shape of the handle,lever,curved
 8d89821c.jpg,What is the main color of the sandal straps,white,beige
 f4e1cebf.jpg,What is the thickness of the gloves in mils,9,50
