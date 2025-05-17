@@ -11,10 +11,14 @@ Clone the repository and add the datasets so that the directory structure looks 
 ```none
 📂data
  ┣ 📂images
- ┃ ┣ 📂metadata
- ┃ ┗ 📂small
+ ┃  ┣ 📂metadata
+ ┃  ┗ 📂small
  ┣ 📂listings
- ┗ ┗ 📂metadata
+ ┃  ┗ 📂metadata
+ ┣ 📂blip_ft
+ ┣ 📂vilt_ft
+ ┣ 📂csvs
+ ┗ 📂curated_images
 📂scripts
 ```
 
@@ -24,9 +28,27 @@ Ensure you have `python 3.10`. To install required libraries, run
 pip install -r requirements.txt
 ```
 
-All notebooks are present in the `notebooks` folder. To create the curated dataset at `data/curated.csv`, run `curator_data.ipynb`. This will also save the selected resized images in `data/curated_images`. To create the VQA dataset at `data/vqa.csv`, run `make_vqa.ipynb`.
+The scripts folder contains all the code.
 
-To make the baseline inference predictions at `data/preds_blip.csv` and `data/preds_vilt.csv`, run `infer_blip.ipynb` and `infer_vilt.ipynb`. To evaluate the predictions, run `eval.ipynb`.
+- `curate_data.py`: Filters images and metadata. Saves the images to `data/curated_images` and the metadata to `data/csvs/curated.csv`.
+  
+- `make_vqa.py`: Makes the VQA dataset from the curated images and metadata. Saves it to `data/csvs/vqa.csv`.
+  
+- `finetune_blip.py`: Finetunes `salesforce/blip-vqa-base` on the VQA dataset. Saves model to `data/blip_ft`. The finetuned model is also put on HuggingFace Hub as `pratster/salesforce_blip_fine_tuned`.
+  
+- `finetune_vilt.py`: Finetunes `dandelin/vilt-b32-finetuned-vqa` on the VQA dataset. Saves model to `data/vilt_ft`.
+  
+- `infer_blip.py`: Inference with vanilla/finetuned BLIP model on a subset of the VQA data. Saves predictions to `data/csvs/preds_blip.csv` or `data/csvs/preds_blip_ft.csv`.
+  
+- `infer_blip.py`: Inference with vanilla/finetuned ViLT model on a subset of the VQA data. Saves predictions to `data/csvs/preds_vilt.csv` or `data/csvs/preds_vilt_ft.csv`.
+  
+- `eval.py`: Evaluates performance for any set of predictions and displays evaluation metrics.
+
+The `inference.py` file is for submission and supports only the vanilla/finetuned BLIP model. To run it, use the command
+
+```
+python inference.py --image_dir data/curated_images --csv_path data/csvs/vqa.csv
+```
 
 ## Authors
 
