@@ -26,12 +26,12 @@
   "rank_pattern": {},
   "revision": null,
   "target_modules": [
-    "q_proj",
-    "key",
+    "k_proj",
     "value",
+    "q_proj",
     "v_proj",
-    "query",
-    "k_proj"
+    "key",
+    "query"
   ],
   "task_type": null,
   "use_dora": false,

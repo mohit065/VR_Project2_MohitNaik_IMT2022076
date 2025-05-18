@@ -22,7 +22,7 @@ Clone the repository and add the datasets so that the directory structure looks 
 📂scripts
 ```
 
-Ensure you have `python 3.10`. To install required libraries, run
+Ensure you have `python 3.9` or above. To install required libraries, run
 
 ```none
 pip install -r requirements.txt
@@ -46,7 +46,7 @@ The scripts folder contains all the code.
 
 The `inference.py` file is for submission and supports only the vanilla/finetuned BLIP model. To run it, use the command
 
-```
+```python
 python inference.py --image_dir data/curated_images --csv_path data/csvs/vqa.csv
 ```
 
