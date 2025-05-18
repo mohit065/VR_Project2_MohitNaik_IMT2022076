@@ -18,6 +18,7 @@ Clone the repository and add the datasets so that the directory structure looks 
  ┣ 📂blip_ft
  ┣ 📂vilt_ft
  ┣ 📂csvs
+ ┣ 📂IMT2022076
  ┗ 📂curated_images
 📂scripts
 ```
@@ -44,10 +45,10 @@ The scripts folder contains all the code.
   
 - `eval.py`: Evaluates performance for any set of predictions and displays evaluation metrics.
 
-The `inference.py` file is for submission and supports only the vanilla/finetuned BLIP model. To run it, use the command
+The `IMT2022076` directory is for submission. It will contain the requirements file along with a script `inference.py`, which performs inference on the finetuned BLIP model put on HuggingFace, using the VQA data. Run it using
 
 ```python
-python inference.py --image_dir data/curated_images --csv_path data/csvs/vqa.csv
+python inference.py --image_dir ../data/curated_images --csv_path ../data/csvs/vqa.csv
 ```
 
 ## Authors
