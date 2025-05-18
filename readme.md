@@ -6,7 +6,7 @@ This readme only contains the steps to run the code. All other information regar
 
 ## Steps to Run
 
-Clone the repository and add the datasets so that the directory structure looks as follows:
+Clone the repository and add the [datasets](https://amazon-berkeley-objects.s3.amazonaws.com/index.html) so that the directory structure looks as follows:
 
 ```none
 📂data
@@ -56,5 +56,3 @@ python inference.py --image_dir ../data/curated_images --csv_path ../data/csvs/v
 - [IMT2022017 Prateek Rath](https://github.com/prateek-rath)
 - [IMT2022076 Mohit Naik](https://github.com/mohit065)
 - [IMT2022519 Vedant Mangrulkar](https://github.com/MVedant21)
-
----
